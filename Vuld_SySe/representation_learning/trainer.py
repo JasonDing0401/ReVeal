@@ -83,6 +83,7 @@ def train(model, dataset, optimizer, num_epochs, max_patience=5,
         if output_buffer is not None:
             print('Training Interrupted by User!')
         if best_model is not None:
+            print("best model is preloaded")
             model.load_state_dict(best_model)
             if cuda_device != -1:
                 model.cuda(device=cuda_device)

@@ -31,3 +31,5 @@ Vuld_SySe/representation_learning/tsnes/
 Vuld_SySe/representation_learning_inproved/
 .idea/
 Attn_Vul_Det/
+data_processing/tmp/
+code-slicer/

@@ -19,6 +19,7 @@ if __name__ == '__main__':
     parser.add_argument('--baseline_balance', action='store_true')
     parser.add_argument('--baseline_model', default='svm')
     parser.add_argument('--num_layers', default=1, type=int)
+    parser.add_argument('--max_patience', default=5, type=int)
     numpy.random.rand(1000)
     torch.manual_seed(1000)
     args = parser.parse_args()
@@ -51,6 +52,8 @@ if __name__ == '__main__':
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
     output_file_name = output_dir + '/' + dataset.replace('/', '_') + '-' + feature_name + '-'
+    if args.max_patience != 5:
+        output_file_name += 'max_patience_' + str(args.max_patience) +'-'
     if args.lambda1 == 0:
         assert args.lambda2 == 0
         output_file_name += 'cross-entropy-only-layers-'+ str(args.num_layers) + '.tsv'
@@ -78,7 +81,7 @@ if __name__ == '__main__':
             model = SVMLearningAPI(True, args.baseline_balance, model_type=args.baseline_model)
         else:
             model = RepresentationLearningModel(
-                lambda1=args.lambda1, lambda2=args.lambda2, batch_size=128, print=True, max_patience=5, balance=True,
+                lambda1=args.lambda1, lambda2=args.lambda2, batch_size=128, print=True, max_patience=args.max_patience, balance=True,
                 num_layers=args.num_layers
             )
         model.train(train_X, train_Y)
