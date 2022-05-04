@@ -380,13 +380,13 @@ def unify_slices(list_of_list_of_slices):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--project', default='chrome_debian')
-    parser.add_argument('--csv', help='normalized csv files to process', default='../data/chrome_debian/parsed/')
-    parser.add_argument('--src', help='source c files to process', default='../data/chrome_debian/raw_code/')
+    parser.add_argument('--project', default='php')
+    parser.add_argument('--csv', help='normalized csv files to process', default='/space2/ding/dl-vulnerability-detection/code/php/parsed/')
+    parser.add_argument('--src', help='source c files to process', default='/space2/ding/dl-vulnerability-detection/code/php/raw_code/')
     parser.add_argument('--wv', default='../data/chrome_debian/raw_code_deb_chro.100')
-    parser.add_argument('--output', default='../data/full_experiment_real_data/chrome_debian/chrome_debian.json')
+    parser.add_argument('--output', default='/space2/ding/dl-vulnerability-detection/data/php.json')
     args = parser.parse_args()
-    json_file_path = '../data/' + args.project + '_full_data_with_slices.json'
+    json_file_path = '/space2/ding/dl-vulnerability-detection/data/' + args.project + '_full_data_with_slices.json'
     data = json.load(open(json_file_path))
     model = Word2Vec.load(args.wv)
     final_data = []
