@@ -23,6 +23,11 @@ This slicer is based on [Joern Fuzzy Code parser](https://github.com/octopus-pla
    cd ..
    ```
 
+## Get nodes and edges csv files
+```
+    ./joern/joern-parse (directory path of raw code)
+```
+
 ## Usage
 To extract slice use
  ```
