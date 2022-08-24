@@ -37,6 +37,8 @@ This will generate a file `<data_name>_full_data_with_slices.json` in your data 
 
 3. Update [data_processing/full_data_prep_script.ipynb](data_processing/full_data_prep_script.ipynb) to input to the GGNN.
 
+4. Run `data_processing/split_data.py` to get `train/valid/test_GGNNinput.json` files for GGNN input.
+
 ### Running GGNN. 
 
 1. Clone our implemetation of Devign from [here](https://github.com/saikat107/Devign.git).
