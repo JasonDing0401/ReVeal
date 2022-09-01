@@ -7,6 +7,7 @@ import torch
 from representation_learning_api import RepresentationLearningModel
 from sklearn.model_selection import train_test_split
 from baseline_svm import SVMLearningAPI
+import pickle
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -26,22 +27,24 @@ if __name__ == '__main__':
     dataset = args.dataset
     feature_name = args.features
     parts = ['train', 'valid', 'test']
-    if feature_name == 'ggnn':
-        if dataset == 'chrome_debian/balanced':
-            ds = '../../data/after_ggnn/chrome_debian/balance/v3/'
-        elif dataset == 'chrome_debian/imbalanced':
-            ds = '../../data/after_ggnn/chrome_debian/imbalance/v6/'
-        elif dataset == 'devign':
-            ds = '../../data/after_ggnn/devign/v6/'
-        else:
-            raise ValueError('Imvalid Dataset')
-    else:
-        if dataset == 'chrome_debian':
-            ds = '../../data/full_experiment_real_data_processed/chrome_debian/full_graph/v1/graph_features/'
-        elif dataset == 'devign':
-            ds = '../../data/full_experiment_real_data_processed/devign/full_graph/v1/graph_features/'
-        else:
-            raise ValueError('Imvalid Dataset')
+    # if feature_name == 'ggnn':
+    #     if dataset == 'chrome_debian/balanced':
+    #         ds = '../../data/after_ggnn/chrome_debian/balance/v3/'
+    #     elif dataset == 'chrome_debian/imbalanced':
+    #         ds = '../../data/after_ggnn/chrome_debian/imbalance/v6/'
+    #     elif dataset == 'devign':
+    #         ds = '../../data/after_ggnn/devign/v6/'
+    #     else:
+    #         raise ValueError('Imvalid Dataset')
+    # else:
+    #     if dataset == 'chrome_debian':
+    #         ds = '../../data/full_experiment_real_data_processed/chrome_debian/full_graph/v1/graph_features/'
+    #     elif dataset == 'devign':
+    #         ds = '../../data/full_experiment_real_data_processed/devign/full_graph/v1/graph_features/'
+    #     else:
+    #         raise ValueError('Imvalid Dataset')
+    dataset = 'combined'
+    ds = '../../../Devign/output/combined/'
     assert isinstance(dataset, str)
     output_dir = 'results_test'
     if args.baseline:
@@ -70,13 +73,26 @@ if __name__ == '__main__':
             features.append(d['graph_feature'])
             targets.append(d['target'])
         del data
+    # ds_train = '../../data/after_ggnn/chrome_debian/balance/v3/'
+    # features_train = []
+    # targets_train = []
+    # for part in parts:
+    #     json_data_file = open(ds_train + part + '_GGNNinput_graph.json')
+    #     data = json.load(json_data_file)
+    #     json_data_file.close()
+    #     for d in data:
+    #         features_train.append(d['graph_feature'])
+    #         targets_train.append(d['target'])
+    #     del data
     X = numpy.array(features)
     Y = numpy.array(targets)
     print('Dataset', X.shape, Y.shape, numpy.sum(Y), sep='\t', file=sys.stderr)
     print('=' * 100, file=sys.stderr, flush=True)
-    for _ in range(30):
-        train_X, test_X, train_Y, test_Y = train_test_split(X, Y, test_size=0.2)
-        print(train_X.shape, train_Y.shape, test_X.shape, test_Y.shape, sep='\t', file=sys.stderr, flush=True)
+    for _ in range(1):
+        # train_X, train_Y = numpy.array(features_train), numpy.array(targets_train)
+        test_X, test_Y = numpy.array(features), numpy.array(targets)
+        # train_X, test_X, train_Y, test_Y = train_test_split(X, Y, test_size=0.2)
+        # print(train_X.shape, train_Y.shape, test_X.shape, test_Y.shape, sep='\t', file=sys.stderr, flush=True)
         if args.baseline:
             model = SVMLearningAPI(True, args.baseline_balance, model_type=args.baseline_model)
         else:
@@ -84,7 +100,7 @@ if __name__ == '__main__':
                 lambda1=args.lambda1, lambda2=args.lambda2, batch_size=128, print=True, max_patience=args.max_patience, balance=True,
                 num_layers=args.num_layers
             )
-        model.train(train_X, train_Y)
+        # model.train(train_X, train_Y)
         results = model.evaluate(test_X, test_Y)
         print(results['accuracy'], results['precision'], results['recall'], results['f1'], sep='\t', flush=True,
               file=output_file)

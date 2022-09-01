@@ -1,6 +1,7 @@
 import numpy
 import sys
 import torch
+import joblib
 from sklearn.base import BaseEstimator
 from sklearn.model_selection import train_test_split
 from torch.optim import Adam
@@ -13,7 +14,7 @@ class RepresentationLearningModel(BaseEstimator):
     def __init__(self,
                  alpha=0.5, lambda1=0.5, lambda2=0.001, hidden_dim=256,  # Model Parameters
                  dropout=0.2, batch_size=64, balance=True,   # Model Parameters
-                 num_epoch=100, max_patience=20,  # Training Parameters
+                 num_epoch=1000, max_patience=20,  # Training Parameters
                  print=False, num_layers=1
                  ):
         self.hidden_dim = hidden_dim
@@ -59,6 +60,11 @@ class RepresentationLearningModel(BaseEstimator):
             cuda_device=0 if self.cuda else -1,
             output_buffer=self.output_buffer
         )
+        model_to_store = self.model.cpu()
+        with open("/space2/ding/Devign/models/reveal/rl-model_reveal.pkl", "wb+") as f:
+            joblib.dump(model_to_store, f)
+            print("Successfully saved model to file!\n")
+            self.model.cuda()
         if self.output_buffer is not None:
             print('Training Complete', file=self.output_buffer)
 
@@ -68,6 +74,10 @@ class RepresentationLearningModel(BaseEstimator):
         self.dataset.clear_test_set()
         for _x in text_x:
             self.dataset.add_data_entry(_x.tolist(), 0, part='test')
+        with open("/space2/ding/Devign/models/reveal/rl-model_reveal.pkl", "rb") as f:
+            self.model = joblib.load(f)
+            print("Successfully loaded model from file!\n")
+            self.model.cuda()
         return predict(
             model=self.model, iterator_function=self.dataset.get_next_test_batch,
             _batch_count=self.dataset.initialize_test_batches(), cuda_device=0 if self.cuda else -1,
@@ -90,6 +100,10 @@ class RepresentationLearningModel(BaseEstimator):
         self.dataset.clear_test_set()
         for _x, _y in zip(text_x, test_y):
             self.dataset.add_data_entry(_x.tolist(), _y.item(), part='test')
+        with open("/space2/ding/Devign/models/reveal/rl-model_reveal.pkl", "rb") as f:
+            self.model = joblib.load(f)
+            print("Successfully loaded model from file!\n")
+            self.model.cuda()
         acc, pr, rc, f1 = evaluate_from_model(
             model=self.model, iterator_function=self.dataset.get_next_test_batch,
             _batch_count=self.dataset.initialize_test_batches(), cuda_device=0 if self.cuda else -1,

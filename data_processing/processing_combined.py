@@ -19,8 +19,8 @@ try:
 except:
     pass
 from graphviz import Digraph
-from . import create_ggnn_data
-from . import split_data
+import create_ggnn_data
+import split_data
 
 
 l_funcs = ['StrNCat', 'getaddrinfo', '_ui64toa', 'fclose', 'pthread_mutex_lock', 'gets_s', 'sleep', 
@@ -765,7 +765,14 @@ def extract_line_graph_data(
 
 def main():
     extract_slices()
+    print("done function 1\n")
     create_ggnn_data.create_ggnn_data_main()
-    extract_graph_data('ImageMagick', 'full_graph')
+    print("done function 2\n")
+    extract_graph_data("full_graph", "ImageMagick")
+    print("done function 3\n")
     extract_line_graph_data("ImageMagick")
+    print("done function 4\n")
     split_data.split_data_main()
+
+if __name__ == "__main__":
+    main()

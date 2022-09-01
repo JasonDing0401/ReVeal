@@ -305,6 +305,11 @@ def inputGeneration(nodeCSV, edgeCSV, target, wv, edge_type_map, cfg_only=False)
             node_type = node['type']
             if node_type == 'File':
                 continue
+            try:
+                type_map[node_type]
+            except KeyError:
+                print("missing node type:", node_type)
+                continue
             node_content = node['code'].strip()
             node_split = nltk.word_tokenize(node_content)
             nrp = np.zeros(100)
@@ -378,24 +383,19 @@ def unify_slices(list_of_list_of_slices):
     pass
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--project', default='php')
-    parser.add_argument('--csv', help='normalized csv files to process', default='/space2/ding/dl-vulnerability-detection/code/php/parsed/')
-    parser.add_argument('--src', help='source c files to process', default='/space2/ding/dl-vulnerability-detection/code/php/raw_code/')
-    parser.add_argument('--wv', default='../data/chrome_debian/raw_code_deb_chro.100')
-    parser.add_argument('--output', default='/space2/ding/dl-vulnerability-detection/data/php.json')
-    args = parser.parse_args()
-    json_file_path = '/space2/ding/dl-vulnerability-detection/data/' + args.project + '_full_data_with_slices.json'
+def create_ggnn_data_main(project='ImageMagick', csv='/space2/ding/dl-vulnerability-detection/code/ImageMagick/parsed/',\
+    src='/space2/ding/dl-vulnerability-detection/code/ImageMagick/raw_code/', wv='../data/chrome_debian/raw_code_deb_chro.100',\
+        output='/space2/ding/dl-vulnerability-detection/data/output/ImageMagick.json'):
+    json_file_path = '/space2/ding/dl-vulnerability-detection/data/full_data_with_slices/' + project + '_full_data_with_slices.json'
     data = json.load(open(json_file_path))
-    model = Word2Vec.load(args.wv)
+    model = Word2Vec.load(wv)
     final_data = []
     v, nv, vd_present, syse_present, cg_present, dg_present, cdg_present = 0, 0, 0, 0, 0, 0, 0
     data_shard = 1
     for didx, entry in enumerate(tqdm(data)):
         file_name = entry['file_path'].split('/')[-1]
-        nodes_path = os.path.join(args.csv, file_name, 'nodes.csv')
-        edges_path = os.path.join(args.csv, file_name, 'edges.csv')
+        nodes_path = os.path.join(csv, file_name, 'nodes.csv')
+        edges_path = os.path.join(csv, file_name, 'edges.csv')
         label = int(entry['label'])
         if not os.path.exists(nodes_path) or not os.path.exists(edges_path):
             continue
@@ -442,7 +442,7 @@ def main():
         }
         final_data.append(data_point)
         if len(final_data) == 5000:
-            output_path = args.output + '.shard' + str(data_shard)
+            output_path = output + '.shard' + str(data_shard)
             with open(output_path, 'w') as fp:
                 json.dump(final_data, fp)
                 fp.close()
@@ -455,12 +455,12 @@ def main():
           "SySeVr:\t%d\n"
           "Control: %d\tData: %d\tBoth: %d" % \
           (v, nv, vd_present, syse_present, cg_present, dg_present, cdg_present))
-    output_path = args.output + '.shard' + str(data_shard)
+    output_path = output + '.shard' + str(data_shard)
     with open(output_path, 'w') as fp:
         json.dump(final_data, fp)
         fp.close()
     print('Saved Shard %d to %s' % (data_shard, output_path), '=' * 100, 'Done', sep='\n')
 
 
-if __name__ == '__main__':
-    main()
+# if __name__ == '__main__':
+#     main()

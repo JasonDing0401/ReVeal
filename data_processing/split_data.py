@@ -48,15 +48,13 @@ def split_and_save(name, output, buggy, non_buggy, percent, keep_original=False)
     pass
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--input', help='Path of the input file', required=True)
-    parser.add_argument('--output', help='Output Directory', required=True)
-    parser.add_argument('--percent', nargs='+', type=int, help='Percentage of buggy to all', required=True)
-    parser.add_argument('--name', required=True)
-    args = parser.parse_args()
+def split_data_main(input='/space2/ding/dl-vulnerability-detection/data/full_experiment_real_data_processed/ImageMagick-full_graph.json',\
+    output='/space2/ding/dl-vulnerability-detection/data/ggnn_input/ImageMagick', name='ImageMagick', percent=[50]):
+    # python split_data.py --input 
+    # /space2/ding/dl-vulnerability-detection/data/full_experiment_real_data_processed/ImageMagick-full_graph.json 
+    # --output /space2/ding/dl-vulnerability-detection/data/ggnn_input/ImageMagick --name ImageMagick --percent 50
 
-    input_data = json.load(open(args.input))
+    input_data = json.load(open(input))
     print('Finish Reading data, #examples', len(input_data))
     buggy = []
     non_buggy = []
@@ -68,11 +66,8 @@ if __name__ == '__main__':
             non_buggy.append(example)
     print('Buggy', len(buggy), 'Non Buggy', len(non_buggy))
     buggy_count = len(buggy)
-    if not os.path.exists(args.output):
-        os.mkdir(args.output)
-    split_and_save(args.name + '-original', args.output, buggy, non_buggy, 0, True)
-    for percent in args.percent:
-        split_and_save(args.name, args.output, buggy, non_buggy, percent)
-
-    #split_and_save(args.name + '-original', args.output, buggy, non_buggy, percent, True)
-    pass
+    if not os.path.exists(output):
+        os.mkdir(output)
+    split_and_save(name + '-original', output, buggy, non_buggy, 0, True)
+    for percent in percent:
+        split_and_save(name, output, buggy, non_buggy, percent)
