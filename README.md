@@ -45,55 +45,15 @@ This will generate a file `<data_name>_full_data_with_slices.json` in your data 
 2. Use the following parameters `"node_features"` as `"--node_tag"`, `"graph"` as `--graph_tag`, and `targets` as `--label_tag`.
 3. User `--save_after_ggnn` flag for saving the data after processing through GGNN.
 
-### To try ReVeal pipeline as a whole, 
-The running APIs are exposed by [this file](Vuld_SySe/representation_learning/api_test.py). Moddify the parameters to fit your need.
+# 09/29/2022 Update
+## Steps
 
-To try ReVeal on Chrome+Debian(Verum) dataset,
-```bash
-cd Vuld_SySe/representation_learning;
-bash run_verum.sh
-```
+1. In https://github.com/JasonDing0401/ReVeal/tree/master/code-slicer, run all the steps until (including) "Get nodes and edges csv files". For the raw code, the format is that => go to the folder you want to perform your experiment, create a folder named `raw_code` and create every functions in separate C files. We followed the custom to file names `<name>_<VUL>.c`, wehre the `<VUL>` is the Vulnerability identifier of the function (0 for benign, 1 for vulnerable).
+2. Run this https://github.com/JasonDing0401/ReVeal/blob/master/data_processing/processing_combined.py. You need to change every "ImageMagick" to your repo name. Sorry that I hardcode the name. All the data should be stored inside `dl-vulnerability-detection/data` folder. The final output should be three `*_GGNNinput.json` files.
+3. Run this https://github.com/JasonDing0401/Devign/blob/master/main.py with `python main.py --dataset ImageMagick --input_dir /space2/ding/dl-vulnerability-detection/data/ggnn_input/ImageMagick --feature_size 169 --model_type ggnn` and replace "ImageMagick" with your repo.
+4. Run this https://github.com/JasonDing0401/ReVeal/blob/master/Vuld_SySe/representation_learning/api_test.py with `python api_test.py --dataset chrome_debian/balanced --features ggnn`, make sure to change the names here https://github.com/JasonDing0401/ReVeal/blob/1eb1e60fc5e9f9b683334ad7f86ac4b1c1c084f4/Vuld_SySe/representation_learning/api_test.py#L46-L47 to your repo.
+5. Finally, you will get the results in this folder `ReVeal/Vuld_SySe/representation_learning/results_test`.
 
-To try ReVeal on Devign dataset,
-```bash
-cd Vuld_SySe/representation_learning;
-bash run_devign.sh
-```
+## Caution
 
-We include different scripts for running other models (_i.e._ VulDeePecker, SySeVR, Draper) under  `scripts/` and `real_data_scripts/` folders.
-
-## Acknoledgements.
-
-We are using several different components from the state-of-the-art research. Please cite accordingly to pay due attributes and credits to the authors.
-1. If you use Code-Slicer portion from this repository, please cite the following
-```latex
-@inproceedings{yamaguchi2014modeling,
-  title={Modeling and discovering vulnerabilities with code property graphs},
-  author={Yamaguchi, Fabian and Golde, Nico and Arp, Daniel and Rieck, Konrad},
-  booktitle={2014 IEEE Symposium on Security and Privacy},
-  pages={590--604},
-  year={2014},
-  organization={IEEE}
-}
-```
-
-2. If you use Devign, please cite,
-```latex
-@inproceedings{zhou2019devign,
-  title={Devign: Effective vulnerability identification by learning comprehensive program semantics via graph neural networks},
-  author={Zhou, Yaqin and Liu, Shangqing and Siow, Jingkai and Du, Xiaoning and Liu, Yang},
-  booktitle={Advances in Neural Information Processing Systems},
-  pages={10197--10207},
-  year={2019}
-}
-```
-
-3. If you refer to empirical finding reported in the paper, please cite our pre-print as
-```latex
-@article{chakraborty2020deep,
-  title={Deep Learning based Vulnerability Detection: Are We There Yet?},
-  author={Chakraborty, Saikat and Krishna, Rahul and Ding, Yangruibo and Ray, Baishakhi},
-  journal={arXiv preprint arXiv:2009.07235},
-  year={2020}
-}
-```
+Sorry again that I nearly hardcode every path name. Try searching `Devign`, `ReVeal`, and `dl-vulnerability-detection`, then change them to the correct path in your computer.
