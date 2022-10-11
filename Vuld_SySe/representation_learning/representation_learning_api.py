@@ -35,6 +35,9 @@ class RepresentationLearningModel(BaseEstimator):
             self.output_buffer = None
         pass
 
+    def dataset_init(self, test_x):
+        self.dataset = DataSet(self.batch_size, test_x.shape[1])
+        
     def fit(self, train_x, train_y):
         self.train(train_x, train_y)
 
@@ -60,11 +63,11 @@ class RepresentationLearningModel(BaseEstimator):
             cuda_device=0 if self.cuda else -1,
             output_buffer=self.output_buffer
         )
-        model_to_store = self.model.cpu()
-        with open("/space2/ding/Devign/models/reveal/rl-model_reveal.pkl", "wb+") as f:
-            joblib.dump(model_to_store, f)
-            print("Successfully saved model to file!\n")
-            self.model.cuda()
+        # model_to_store = self.model.cpu()
+        # with open("/home/ding/dlvp/Devign/models/bugzilla_snykio/rl-model-pretrained_reveal-V1.pkl", "wb+") as f:
+        #     joblib.dump(model_to_store, f)
+        #     print("Successfully saved model to file!\n")
+        #     self.model.cuda()
         if self.output_buffer is not None:
             print('Training Complete', file=self.output_buffer)
 
@@ -74,10 +77,10 @@ class RepresentationLearningModel(BaseEstimator):
         self.dataset.clear_test_set()
         for _x in text_x:
             self.dataset.add_data_entry(_x.tolist(), 0, part='test')
-        with open("/space2/ding/Devign/models/reveal/rl-model_reveal.pkl", "rb") as f:
-            self.model = joblib.load(f)
-            print("Successfully loaded model from file!\n")
-            self.model.cuda()
+        # with open("/space2/ding/Devign/models/reveal/rl-model-pretrained_reveal-V1.pkl", "rb") as f:
+        #     self.model = joblib.load(f)
+        #     print("Successfully loaded model from file!\n")
+        #     self.model.cuda()
         return predict(
             model=self.model, iterator_function=self.dataset.get_next_test_batch,
             _batch_count=self.dataset.initialize_test_batches(), cuda_device=0 if self.cuda else -1,
@@ -94,16 +97,17 @@ class RepresentationLearningModel(BaseEstimator):
             _batch_count=self.dataset.initialize_test_batches(), cuda_device=0 if self.cuda else -1
         )
 
-    def evaluate(self, text_x, test_y):
+    def evaluate(self, test_x, test_y, pretrain=False):
         if not hasattr(self, 'dataset'):
             raise ValueError('Cannnot call predict or evaluate in untrained model. Train First!')
         self.dataset.clear_test_set()
-        for _x, _y in zip(text_x, test_y):
+        for _x, _y in zip(test_x, test_y):
             self.dataset.add_data_entry(_x.tolist(), _y.item(), part='test')
-        with open("/space2/ding/Devign/models/reveal/rl-model_reveal.pkl", "rb") as f:
-            self.model = joblib.load(f)
-            print("Successfully loaded model from file!\n")
-            self.model.cuda()
+        if pretrain:
+            with open("/home/ding/dlvp/Devign/models/reveal/rl-model-pretrained_reveal-V1.pkl", "rb") as f:
+                self.model = joblib.load(f)
+                print("Successfully loaded model from file!\n")
+                self.model.cuda()
         acc, pr, rc, f1 = evaluate_from_model(
             model=self.model, iterator_function=self.dataset.get_next_test_batch,
             _batch_count=self.dataset.initialize_test_batches(), cuda_device=0 if self.cuda else -1,
@@ -116,11 +120,11 @@ class RepresentationLearningModel(BaseEstimator):
             'f1': f1
         }
 
-    def score(self, text_x, test_y):
+    def score(self, test_x, test_y):
         if not hasattr(self, 'dataset'):
             raise ValueError('Cannnot call predict or evaluate in untrained model. Train First!')
         self.dataset.clear_test_set()
-        for _x, _y in zip(text_x, test_y):
+        for _x, _y in zip(test_x, test_y):
             self.dataset.add_data_entry(_x.tolist(), _y.item(), part='test')
         _, _, _, f1 = evaluate_from_model(
             model=self.model, iterator_function=self.dataset.get_next_test_batch,

@@ -15,7 +15,7 @@ warnings.filterwarnings('ignore')
 # set the config
 try:
     clang.cindex.Config.set_library_path("/usr/lib/x86_64-linux-gnu")
-    clang.cindex.Config.set_library_file('/usr/lib/x86_64-linux-gnu/libclang-6.0.so.1')
+    clang.cindex.Config.set_library_file('/usr/lib/x86_64-linux-gnu/libclang-10.so.1')
 except:
     pass
 from graphviz import Digraph
@@ -524,14 +524,14 @@ def reformat_code_line_graph(code_lines, adjacency_lists, lanel, wv_model_origin
     }
     return data_point
 
-def extract_slices():
-    split_dir = '/space2/ding/dl-vulnerability-detection/code/v8/raw_code/'
-    parsed = '/space2/ding/dl-vulnerability-detection/code/v8/parsed/'
+def extract_slices(project):
+    split_dir = f'/home/ding/dlvp/dl-vulnerability-detection/data/commits/code/{project}/raw_code/'
+    parsed = f'/home/ding/dlvp/dl-vulnerability-detection/data/commits/code/{project}/parsed/'
     all_data = []
-    ggnn_json_data = json.load(open('/space2/ding/dl-vulnerability-detection/data/cfg_full_text_files/v8_cfg_full_text_files.json'))
+    ggnn_json_data = json.load(open(f'/home/ding/dlvp/dl-vulnerability-detection/data/commits/code/{project}/{project}_cfg_full_text_files.json'))
     files = [d['file_name'] for d in ggnn_json_data]
     print(len(files))
-    
+
     for i, file_name  in enumerate(files):
         label = file_name.strip()[:-2].split('_')[-1]
         code_text = read_file(split_dir + file_name.strip())
@@ -675,14 +675,14 @@ def extract_slices():
         # break
         all_data.append(data_instance)
     print(len(all_data))
-    output_file = open('/space2/ding/dl-vulnerability-detection/data/full_data_with_slices/v8_full_data_with_slices.json', 'w+')
+    output_file = open(f'/home/ding/dlvp/dl-vulnerability-detection/data/commits/code/{project}_full_data_with_slices.json', 'w+')
     json.dump(all_data, output_file)
     output_file.close()
     return all_data
 
 def extract_graph_data(portion, 
-    project='ImageMagick', base_dir='/space2/ding/dl-vulnerability-detection/data/output/', 
-    output_dir='/space2/ding/dl-vulnerability-detection/data/full_experiment_real_data_processed/'):
+    project, base_dir='/home/ding/dlvp/dl-vulnerability-detection/data/commits/code/output/', 
+    output_dir='/home/ding/dlvp/dl-vulnerability-detection/data/commits/code/full_experiment_real_data_processed/'):
     assert portion in ['full_graph', 'cgraph', 'dgraph', 'cdgraph']
     shards = os.listdir(os.path.join(base_dir, project))
     shard_count = len(shards)
@@ -720,14 +720,13 @@ def extract_graph_data(portion,
     print(project, portion, len(total_functions), len(in_scope_function), vnt, nvnt, sep='\t')
 
 def extract_line_graph_data(
-    project, base_dir='/space2/ding/dl-vulnerability-detection/data/output/', 
-    output_dir='/space2/ding/dl-vulnerability-detection/data/full_experiment_real_data_processed/'):
+    project, base_dir='/home/ding/dlvp/dl-vulnerability-detection/data/commits/code/output/', 
+    output_dir='/home/ding/dlvp/dl-vulnerability-detection/data/commits/code/full_experiment_real_data_processed/'):
     wv_model_li = Word2Vec.load('../data/Word2Vec/li_et_al_wv')
-    if project == 'ImageMagick':
-        split_dir = '/space2/ding/dl-vulnerability-detection/code/ImageMagick/raw_code/'
-        parsed = '/space2/ding/dl-vulnerability-detection/code/ImageMagick/parsed/'
-        wv_path = '../data/neurips_parsed/raw_code_neurips.100'
-        wv_model_original = Word2Vec.load(wv_path)
+    split_dir = f'/home/ding/dlvp/dl-vulnerability-detection/data/commits/code/{project}/raw_code/'
+    parsed = f'/home/ding/dlvp/dl-vulnerability-detection/data/commits/code/{project}/parsed/'
+    wv_path = '../data/neurips_parsed/raw_code_neurips.100'
+    wv_model_original = Word2Vec.load(wv_path)
     shards = os.listdir(os.path.join(base_dir, project))
     shard_count = len(shards)
     total_functions, in_scope_function = set(), set()
@@ -764,15 +763,16 @@ def extract_line_graph_data(
     print(len(graphs))
 
 def main():
-    extract_slices()
+    PROJECT = "bugzilla_snykio_top25cwe"
+    extract_slices(PROJECT)
     print("done function 1\n")
-    create_ggnn_data.create_ggnn_data_main()
+    create_ggnn_data.create_ggnn_data_main(PROJECT)
     print("done function 2\n")
-    extract_graph_data("full_graph", "ImageMagick")
+    extract_graph_data("full_graph", PROJECT)
     print("done function 3\n")
-    extract_line_graph_data("ImageMagick")
+    extract_line_graph_data(PROJECT)
     print("done function 4\n")
-    split_data.split_data_main()
+    split_data.split_data_main(PROJECT)
 
 if __name__ == "__main__":
     main()

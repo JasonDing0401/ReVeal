@@ -383,10 +383,14 @@ def unify_slices(list_of_list_of_slices):
     pass
 
 
-def create_ggnn_data_main(project='ImageMagick', csv='/space2/ding/dl-vulnerability-detection/code/ImageMagick/parsed/',\
-    src='/space2/ding/dl-vulnerability-detection/code/ImageMagick/raw_code/', wv='../data/chrome_debian/raw_code_deb_chro.100',\
-        output='/space2/ding/dl-vulnerability-detection/data/output/ImageMagick.json'):
-    json_file_path = '/space2/ding/dl-vulnerability-detection/data/full_data_with_slices/' + project + '_full_data_with_slices.json'
+def create_ggnn_data_main(project):
+    csv=f'/home/ding/dlvp/dl-vulnerability-detection/data/commits/code/{project}/parsed/'
+    src=f'/home/ding/dlvp/dl-vulnerability-detection/data/commits/code/{project}/raw_code/'
+    wv='../data/chrome_debian/raw_code_deb_chro.100'
+    output=f'/home/ding/dlvp/dl-vulnerability-detection/data/commits/code/output/{project}/'
+    os.makedirs(output, exist_ok=False)
+    output += '{project}.json'
+    json_file_path = '/home/ding/dlvp/dl-vulnerability-detection/data/commits/code/' + project + '_full_data_with_slices.json'
     data = json.load(open(json_file_path))
     model = Word2Vec.load(wv)
     final_data = []

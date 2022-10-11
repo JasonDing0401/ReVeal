@@ -8,11 +8,11 @@ from representation_learning_api import RepresentationLearningModel
 from sklearn.model_selection import train_test_split
 from baseline_svm import SVMLearningAPI
 import pickle
+import time
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', default='chrome_debian/balanced',
-                        choices=['chrome_debian/balanced', 'chrome_debian/imbalanced', 'chrome_debian', 'devign'])
+    parser.add_argument('--dataset', help='dataset name from devign/output')
     parser.add_argument('--features', default='ggnn', choices=['ggnn', 'wo_ggnn'])
     parser.add_argument('--lambda1', default=0.5, type=float)
     parser.add_argument('--lambda2', default=0.001, type=float)
@@ -21,6 +21,7 @@ if __name__ == '__main__':
     parser.add_argument('--baseline_model', default='svm')
     parser.add_argument('--num_layers', default=1, type=int)
     parser.add_argument('--max_patience', default=5, type=int)
+    parser.add_argument('--pretrain', action='store_true', help='if use reveal pretrained model')
     numpy.random.rand(1000)
     torch.manual_seed(1000)
     args = parser.parse_args()
@@ -43,8 +44,7 @@ if __name__ == '__main__':
     #         ds = '../../data/full_experiment_real_data_processed/devign/full_graph/v1/graph_features/'
     #     else:
     #         raise ValueError('Imvalid Dataset')
-    dataset = 'combined'
-    ds = '../../../Devign/output/combined/'
+    ds = f'../../../Devign/output/{dataset}/'
     assert isinstance(dataset, str)
     output_dir = 'results_test'
     if args.baseline:
@@ -59,9 +59,12 @@ if __name__ == '__main__':
         output_file_name += 'max_patience_' + str(args.max_patience) +'-'
     if args.lambda1 == 0:
         assert args.lambda2 == 0
-        output_file_name += 'cross-entropy-only-layers-'+ str(args.num_layers) + '.tsv'
+        output_file_name += 'cross-entropy-only-layers-'+ str(args.num_layers) +'-'
     else:
-        output_file_name += 'triplet-loss-layers-'+ str(args.num_layers) + '.tsv'
+        output_file_name += 'triplet-loss-layers-'+ str(args.num_layers) +'-'
+    output_file_name += 'pretrained-reveal-' + str(args.pretrain)
+    timestr = time.strftime("%m%d-%H%M%S")
+    output_file_name += '_' + timestr + '.tsv'
     output_file = open(output_file_name, 'w')
     features = []
     targets = []
@@ -73,25 +76,30 @@ if __name__ == '__main__':
             features.append(d['graph_feature'])
             targets.append(d['target'])
         del data
-    # ds_train = '../../data/after_ggnn/chrome_debian/balance/v3/'
-    # features_train = []
-    # targets_train = []
-    # for part in parts:
-    #     json_data_file = open(ds_train + part + '_GGNNinput_graph.json')
-    #     data = json.load(json_data_file)
-    #     json_data_file.close()
-    #     for d in data:
-    #         features_train.append(d['graph_feature'])
-    #         targets_train.append(d['target'])
-    #     del data
+    # if args.pretrain:
+    #     ds_train = '../../data/after_ggnn/chrome_debian/balance/v3/'
+    #     features_train = []
+    #     targets_train = []
+    #     for part in parts:
+    #         json_data_file = open(ds_train + part + '_GGNNinput_graph.json')
+    #         data = json.load(json_data_file)
+    #         json_data_file.close()
+    #         for d in data:
+    #             features_train.append(d['graph_feature'])
+    #             targets_train.append(d['target'])
+    #         del data
     X = numpy.array(features)
     Y = numpy.array(targets)
     print('Dataset', X.shape, Y.shape, numpy.sum(Y), sep='\t', file=sys.stderr)
     print('=' * 100, file=sys.stderr, flush=True)
-    for _ in range(1):
-        # train_X, train_Y = numpy.array(features_train), numpy.array(targets_train)
-        test_X, test_Y = numpy.array(features), numpy.array(targets)
-        # train_X, test_X, train_Y, test_Y = train_test_split(X, Y, test_size=0.2)
+    print('Accuracy', 'Precision', 'Recall', 'F1', sep='\t', flush=True,\
+        file=output_file)
+    for _ in range(30):
+        if args.pretrain:
+            # train_X, train_Y = numpy.array(features_train), numpy.array(targets_train)
+            test_X, test_Y = X, Y
+        else:
+            train_X, test_X, train_Y, test_Y = train_test_split(X, Y, test_size=0.2)
         # print(train_X.shape, train_Y.shape, test_X.shape, test_Y.shape, sep='\t', file=sys.stderr, flush=True)
         if args.baseline:
             model = SVMLearningAPI(True, args.baseline_balance, model_type=args.baseline_model)
@@ -100,11 +108,16 @@ if __name__ == '__main__':
                 lambda1=args.lambda1, lambda2=args.lambda2, batch_size=128, print=True, max_patience=args.max_patience, balance=True,
                 num_layers=args.num_layers
             )
-        # model.train(train_X, train_Y)
-        results = model.evaluate(test_X, test_Y)
+        if not args.pretrain:
+            model.train(train_X, train_Y)
+        else:
+            model.dataset_init(test_X)
+        results = model.evaluate(test_X, test_Y, args.pretrain)
         print(results['accuracy'], results['precision'], results['recall'], results['f1'], sep='\t', flush=True,
               file=output_file)
         print(results['accuracy'], results['precision'], results['recall'], results['f1'], sep='\t',
               file=sys.stderr, flush=True, end=('\n' + '=' * 100 + '\n'))
+        if args.pretrain:
+            break
     output_file.close()
     pass

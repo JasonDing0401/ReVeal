@@ -48,12 +48,12 @@ def split_and_save(name, output, buggy, non_buggy, percent, keep_original=False)
     pass
 
 
-def split_data_main(input='/space2/ding/dl-vulnerability-detection/data/full_experiment_real_data_processed/ImageMagick-full_graph.json',\
-    output='/space2/ding/dl-vulnerability-detection/data/ggnn_input/ImageMagick', name='ImageMagick', percent=[50]):
+def split_data_main(name, percent=[50]):
     # python split_data.py --input 
-    # /space2/ding/dl-vulnerability-detection/data/full_experiment_real_data_processed/ImageMagick-full_graph.json 
-    # --output /space2/ding/dl-vulnerability-detection/data/ggnn_input/ImageMagick --name ImageMagick --percent 50
-
+    # /space2/ding/dl-vulnerability-detection/data/full_experiment_real_data_processed/bugzilla_snykio-full_graph.json 
+    # --output /space2/ding/dl-vulnerability-detection/data/ggnn_input/bugzilla_snykio --name bugzilla_snykio --percent 50
+    input=f'/home/ding/dlvp/dl-vulnerability-detection/data/commits/code/full_experiment_real_data_processed/{name}-full_graph.json'
+    output=f'/home/ding/dlvp/dl-vulnerability-detection/data/commits/code/ggnn_input/{name}'
     input_data = json.load(open(input))
     print('Finish Reading data, #examples', len(input_data))
     buggy = []
