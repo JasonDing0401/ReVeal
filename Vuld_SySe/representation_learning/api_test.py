@@ -22,6 +22,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_layers', default=1, type=int)
     parser.add_argument('--max_patience', default=5, type=int)
     parser.add_argument('--pretrain', action='store_true', help='if use reveal pretrained model')
+    parser.add_argument('--train_w_reveal', action='store_true', help='whether to train the model with reveal dataset again')
     numpy.random.rand(1000)
     torch.manual_seed(1000)
     args = parser.parse_args()
@@ -62,7 +63,8 @@ if __name__ == '__main__':
         output_file_name += 'cross-entropy-only-layers-'+ str(args.num_layers) +'-'
     else:
         output_file_name += 'triplet-loss-layers-'+ str(args.num_layers) +'-'
-    output_file_name += 'pretrained-reveal-' + str(args.pretrain)
+    output_file_name += 'pretrained-reveal-' + str(args.pretrain) + '-'
+    output_file_name += 'train_w_reveal-' + str(args.train_w_reveal)
     timestr = time.strftime("%m%d-%H%M%S")
     output_file_name += '_' + timestr + '.tsv'
     output_file = open(output_file_name, 'w')
@@ -76,18 +78,18 @@ if __name__ == '__main__':
             features.append(d['graph_feature'])
             targets.append(d['target'])
         del data
-    # if args.pretrain:
-    #     ds_train = '../../data/after_ggnn/chrome_debian/balance/v3/'
-    #     features_train = []
-    #     targets_train = []
-    #     for part in parts:
-    #         json_data_file = open(ds_train + part + '_GGNNinput_graph.json')
-    #         data = json.load(json_data_file)
-    #         json_data_file.close()
-    #         for d in data:
-    #             features_train.append(d['graph_feature'])
-    #             targets_train.append(d['target'])
-    #         del data
+    if args.train_w_reveal:
+        ds_train = '../../data/after_ggnn/chrome_debian/balance/v3/'
+        features_train = []
+        targets_train = []
+        for part in parts:
+            json_data_file = open(ds_train + part + '_GGNNinput_graph.json')
+            data = json.load(json_data_file)
+            json_data_file.close()
+            for d in data:
+                features_train.append(d['graph_feature'])
+                targets_train.append(d['target'])
+            del data
     X = numpy.array(features)
     Y = numpy.array(targets)
     print('Dataset', X.shape, Y.shape, numpy.sum(Y), sep='\t', file=sys.stderr)
@@ -96,10 +98,13 @@ if __name__ == '__main__':
         file=output_file)
     for _ in range(30):
         if args.pretrain:
-            # train_X, train_Y = numpy.array(features_train), numpy.array(targets_train)
             test_X, test_Y = X, Y
         else:
-            train_X, test_X, train_Y, test_Y = train_test_split(X, Y, test_size=0.2)
+            if args.train_w_reveal:
+                train_X, train_Y = numpy.array(features_train), numpy.array(targets_train)
+                test_X, test_Y = X, Y
+            else:
+                train_X, test_X, train_Y, test_Y = train_test_split(X, Y, test_size=0.2)
         # print(train_X.shape, train_Y.shape, test_X.shape, test_Y.shape, sep='\t', file=sys.stderr, flush=True)
         if args.baseline:
             model = SVMLearningAPI(True, args.baseline_balance, model_type=args.baseline_model)
@@ -109,10 +114,10 @@ if __name__ == '__main__':
                 num_layers=args.num_layers
             )
         if not args.pretrain:
-            model.train(train_X, train_Y)
+            model.train(train_X, train_Y, args.dataset, args.train_w_reveal)
         else:
             model.dataset_init(test_X)
-        results = model.evaluate(test_X, test_Y, args.pretrain)
+        results = model.evaluate(test_X, test_Y, args.dataset, args.pretrain)
         print(results['accuracy'], results['precision'], results['recall'], results['f1'], sep='\t', flush=True,
               file=output_file)
         print(results['accuracy'], results['precision'], results['recall'], results['f1'], sep='\t',

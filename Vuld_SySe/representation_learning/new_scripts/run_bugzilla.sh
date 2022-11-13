@@ -1,0 +1,1 @@
+python api_test.py --dataset bugzilla_snykio_pretrain-reveal --num_layers 1 --pretrain

@@ -34,3 +34,4 @@ Attn_Vul_Det/
 data_processing/tmp/
 code-slicer/
 __pycache__/
+*.log

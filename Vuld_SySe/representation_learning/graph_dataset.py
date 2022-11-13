@@ -6,6 +6,9 @@ import numpy as np
 import torch
 import json
 from imblearn.over_sampling import SMOTE
+from joblib import Parallel, delayed
+import time
+import random
 
 
 class DataEntry:
@@ -162,10 +165,21 @@ class DataSet:
             curr = c_end
         return _batches
 
+    # multiprocessing
+
     def prepare_data(self, _entries, indices):
         batch_size = len(indices)
         features = np.zeros(shape=(batch_size, self.hdim))
         targets = np.zeros(shape=(batch_size))
+        # def helper(tidx, idx):
+        #     entry = _entries[idx]
+        #     targets[tidx] = entry.label
+        #     for feature_idx in range(self.hdim):
+        #         features[tidx, feature_idx] = entry.features[feature_idx]
+        # start_t = time.time()
+        # Parallel(n_jobs=-1)(delayed(helper)(tidx, idx) for tidx, idx in enumerate(indices))
+        # end_t = time.time()
+        # print("prepare data takes:", end_t - start_t)
         for tidx, idx in enumerate(indices):
             entry = _entries[idx]
             assert isinstance(entry, DataEntry)
@@ -189,13 +203,20 @@ class DataSet:
 
     def find_triplet_loss_data(self, ignore_indices, negative_indices_pool, positive_indices_pool):
         indices = []
+        pos = 0
+        neg = 0
         for eidx in ignore_indices:
             if self.train_entries[eidx].is_positive():
-                indices_pool = positive_indices_pool
+                # indices_pool = positive_indices_pool
+                pos += 1
             else:
-                indices_pool = negative_indices_pool
-            indices_pool = list(indices_pool)
-            indices.append(np.random.choice(indices_pool))
+                # indices_pool = negative_indices_pool
+                neg += 1
+            # indices_pool = list(indices_pool)
+            # indices.append(np.random.choice(indices_pool))
+        indices += list(np.random.choice(list(positive_indices_pool), pos))
+        indices += list(np.random.choice(list(negative_indices_pool), neg))
+        random.shuffle(indices)
         features, _ = self.prepare_data(self.train_entries, indices)
         return features
 

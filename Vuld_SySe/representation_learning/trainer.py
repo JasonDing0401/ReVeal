@@ -9,6 +9,7 @@ from tqdm import tqdm
 from tsne import plot_embedding
 
 from models import MetricLearningModel
+import time
 
 
 def train(model, dataset, optimizer, num_epochs, max_patience=5,
@@ -31,7 +32,10 @@ def train(model, dataset, optimizer, num_epochs, max_patience=5,
                 model.train()
                 model.zero_grad()
                 optimizer.zero_grad()
+                # start_t = time.time()
                 features, targets, same_class_features, diff_class_features = dataset.get_next_train_batch()
+                # end_t = time.time()
+                # print("load dataset takes:", end_t - start_t)
                 if cuda_device != -1:
                     features = features.cuda(device=cuda_device)
                     targets = targets.cuda(device=cuda_device)
@@ -44,6 +48,7 @@ def train(model, dataset, optimizer, num_epochs, max_patience=5,
                 batch_losses.append(batch_loss.detach().cpu().item())
                 batch_loss.backward()
                 optimizer.step()
+                del features, targets, same_class_features, diff_class_features
             epoch_loss = np.sum(batch_losses).item()
             train_losses.append(epoch_loss)
             if output_buffer is not None:
