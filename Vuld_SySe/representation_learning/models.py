@@ -65,14 +65,15 @@ class MetricLearningModel(nn.Module):
                 .bmm(h_p.unsqueeze(dim=-1)).squeeze(-1).squeeze(-1)
             dot_n = h_a.unsqueeze(dim=1) \
                 .bmm(h_n.unsqueeze(dim=-1)).squeeze(-1).squeeze(-1)
-            mag_a = torch.norm(h_a, dim=-1)
-            mag_p = torch.norm(h_p, dim=-1)
-            mag_n = torch.norm(h_n, dim=-1)
-            D_plus = 1 - (dot_p / (mag_a * mag_p))
-            D_minus = 1 - (dot_n / (mag_a * mag_n))
+            mag_a = torch.linalg.norm(h_a, dim=-1)
+            mag_p = torch.linalg.norm(h_p, dim=-1)
+            mag_n = torch.linalg.norm(h_n, dim=-1)
+            D_plus = 1 - (dot_p / ((mag_a * mag_p) + 1e-8))
+            D_minus = 1 - (dot_n / ((mag_a * mag_n) + 1e-8))
             trip_loss = self.lambda1 * torch.abs((D_plus - D_minus + self.alpha))
             ce_loss = self.loss_function(input=y_a, target=targets)
             l2_loss = self.lambda2 * (mag_a + mag_p + mag_n)
+            # print("model losses:", np.sum(ce_loss.detach().cpu().numpy()), np.sum(trip_loss.detach().cpu().numpy()), np.sum(l2_loss.detach().cpu().numpy()))
             total_loss = ce_loss + trip_loss + l2_loss
             batch_loss = (total_loss).sum(dim=-1)
         return probs, h_a, batch_loss

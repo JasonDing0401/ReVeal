@@ -21,30 +21,15 @@ if __name__ == '__main__':
     parser.add_argument('--baseline_model', default='svm')
     parser.add_argument('--num_layers', default=1, type=int)
     parser.add_argument('--max_patience', default=5, type=int)
-    parser.add_argument('--pretrain', action='store_true', help='if use reveal pretrained model')
-    parser.add_argument('--train_w_reveal', action='store_true', help='whether to train the model with reveal dataset again')
+    parser.add_argument('--testset', type=str, help='test dataset')
+    parser.add_argument('--pretrain', type=str, default=None, help="path to load prerained model with training dataset")
+    
     numpy.random.rand(1000)
     torch.manual_seed(1000)
     args = parser.parse_args()
     dataset = args.dataset
+    testset = args.testset
     feature_name = args.features
-    parts = ['train', 'valid', 'test']
-    # if feature_name == 'ggnn':
-    #     if dataset == 'chrome_debian/balanced':
-    #         ds = '../../data/after_ggnn/chrome_debian/balance/v3/'
-    #     elif dataset == 'chrome_debian/imbalanced':
-    #         ds = '../../data/after_ggnn/chrome_debian/imbalance/v6/'
-    #     elif dataset == 'devign':
-    #         ds = '../../data/after_ggnn/devign/v6/'
-    #     else:
-    #         raise ValueError('Imvalid Dataset')
-    # else:
-    #     if dataset == 'chrome_debian':
-    #         ds = '../../data/full_experiment_real_data_processed/chrome_debian/full_graph/v1/graph_features/'
-    #     elif dataset == 'devign':
-    #         ds = '../../data/full_experiment_real_data_processed/devign/full_graph/v1/graph_features/'
-    #     else:
-    #         raise ValueError('Imvalid Dataset')
     ds = f'../../../Devign/output/{dataset}/'
     assert isinstance(dataset, str)
     output_dir = 'results_test'
@@ -63,14 +48,13 @@ if __name__ == '__main__':
         output_file_name += 'cross-entropy-only-layers-'+ str(args.num_layers) +'-'
     else:
         output_file_name += 'triplet-loss-layers-'+ str(args.num_layers) +'-'
-    output_file_name += 'pretrained-reveal-' + str(args.pretrain) + '-'
-    output_file_name += 'train_w_reveal-' + str(args.train_w_reveal)
+    output_file_name += 'pretrained-' + str(args.pretrain)
     timestr = time.strftime("%m%d-%H%M%S")
     output_file_name += '_' + timestr + '.tsv'
     output_file = open(output_file_name, 'w')
     features = []
     targets = []
-    for part in parts:
+    for part in ['train']:
         json_data_file = open(ds + part + '_GGNNinput_graph.json')
         data = json.load(json_data_file)
         json_data_file.close()
@@ -78,49 +62,53 @@ if __name__ == '__main__':
             features.append(d['graph_feature'])
             targets.append(d['target'])
         del data
-    if args.train_w_reveal:
-        ds_train = '../../data/after_ggnn/chrome_debian/balance/v3/'
-        features_train = []
-        targets_train = []
-        for part in parts:
-            json_data_file = open(ds_train + part + '_GGNNinput_graph.json')
-            data = json.load(json_data_file)
-            json_data_file.close()
-            for d in data:
-                features_train.append(d['graph_feature'])
-                targets_train.append(d['target'])
-            del data
-    X = numpy.array(features)
-    Y = numpy.array(targets)
-    print('Dataset', X.shape, Y.shape, numpy.sum(Y), sep='\t', file=sys.stderr)
+    train_X = numpy.array(features)
+    train_Y = numpy.array(targets)
+    features = []
+    targets = []
+    for part in ['valid']:
+        json_data_file = open(ds + part + '_GGNNinput_graph.json')
+        data = json.load(json_data_file)
+        json_data_file.close()
+        for d in data:
+            features.append(d['graph_feature'])
+            targets.append(d['target'])
+        del data
+    valid_X = numpy.array(features)
+    valid_Y = numpy.array(targets)
+    features = []
+    targets = []
+    test_ds = f'../../../Devign/output/{testset}/'
+    for part in ['test']:
+        json_data_file = open(test_ds + part + '_GGNNinput_graph.json')
+        data = json.load(json_data_file)
+        json_data_file.close()
+        for d in data:
+            features.append(d['graph_feature'])
+            targets.append(d['target'])
+        del data
+    test_X = numpy.array(features)
+    test_Y = numpy.array(targets)
+    print(f'Trainset {dataset} Testset {testset}', train_X.shape, valid_X.shape, test_X.shape, numpy.sum(train_Y), numpy.sum(valid_Y), numpy.sum(test_Y), sep='\t', file=sys.stderr)
     print('=' * 100, file=sys.stderr, flush=True)
-    print('Accuracy', 'Precision', 'Recall', 'F1', sep='\t', flush=True,\
+    print('Accuracy', 'Precision', 'Recall', 'F1', 'TNR', 'FPR', 'FNR', sep='\t', flush=True,\
         file=output_file)
-    for _ in range(30):
-        if args.pretrain:
-            test_X, test_Y = X, Y
-        else:
-            if args.train_w_reveal:
-                train_X, train_Y = numpy.array(features_train), numpy.array(targets_train)
-                test_X, test_Y = X, Y
-            else:
-                train_X, test_X, train_Y, test_Y = train_test_split(X, Y, test_size=0.2)
-        # print(train_X.shape, train_Y.shape, test_X.shape, test_Y.shape, sep='\t', file=sys.stderr, flush=True)
+    for _ in range(5):
         if args.baseline:
             model = SVMLearningAPI(True, args.baseline_balance, model_type=args.baseline_model)
         else:
             model = RepresentationLearningModel(
-                lambda1=args.lambda1, lambda2=args.lambda2, batch_size=128, print=True, max_patience=args.max_patience, balance=True,
+                lambda1=args.lambda1, lambda2=args.lambda2, batch_size=1024, print=True, max_patience=args.max_patience, balance=True,
                 num_layers=args.num_layers
             )
         if not args.pretrain:
-            model.train(train_X, train_Y, args.dataset, args.train_w_reveal)
+            model.train(train_X, train_Y, valid_X, valid_Y, args.dataset)
         else:
             model.dataset_init(test_X)
-        results = model.evaluate(test_X, test_Y, args.dataset, args.pretrain)
-        print(results['accuracy'], results['precision'], results['recall'], results['f1'], sep='\t', flush=True,
+        results = model.evaluate(test_X, test_Y, args.pretrain)
+        print(results['accuracy'], results['precision'], results['recall'], results['f1'], results['tnr'], results['fpr'], results['fnr'], sep='\t', flush=True,
               file=output_file)
-        print(results['accuracy'], results['precision'], results['recall'], results['f1'], sep='\t',
+        print(results['accuracy'], results['precision'], results['recall'], results['f1'], results['tnr'], results['fpr'], results['fnr'], sep=',',
               file=sys.stderr, flush=True, end=('\n' + '=' * 100 + '\n'))
         if args.pretrain:
             break

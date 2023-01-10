@@ -133,6 +133,14 @@ class DataSet:
         raise ValueError('Initialize Train Batch First by calling dataset.initialize_train_batches()')
         pass
 
+    def get_next_train_batch_testonly(self):
+        if len(self.train_batch_indices) > 0:
+            indices = self.train_batch_indices.pop()
+            features, targets = self.prepare_data(self.train_entries, indices)
+            return features, targets
+        raise ValueError('Initialize Train Batch First by calling dataset.initialize_train_batches()')
+        pass
+
     def get_next_valid_batch(self):
         if len(self.valid_batch_indices) > 0:
             indices = self.valid_batch_indices.pop()
@@ -202,22 +210,21 @@ class DataSet:
             ignore_indices, negative_indices_pool, positive_indices_pool)
 
     def find_triplet_loss_data(self, ignore_indices, negative_indices_pool, positive_indices_pool):
-        indices = []
-        pos = 0
-        neg = 0
-        for eidx in ignore_indices:
+        pos = []
+        neg = []
+        for i, eidx in enumerate(ignore_indices):
             if self.train_entries[eidx].is_positive():
                 # indices_pool = positive_indices_pool
-                pos += 1
+                pos.append(i)
             else:
                 # indices_pool = negative_indices_pool
-                neg += 1
+                neg.append(i)
             # indices_pool = list(indices_pool)
             # indices.append(np.random.choice(indices_pool))
-        indices += list(np.random.choice(list(positive_indices_pool), pos))
-        indices += list(np.random.choice(list(negative_indices_pool), neg))
-        random.shuffle(indices)
-        features, _ = self.prepare_data(self.train_entries, indices)
+        indices = np.zeros(len(pos+neg), dtype="int")
+        indices[pos] = list(np.random.choice(list(positive_indices_pool), len(pos)))
+        indices[neg] = list(np.random.choice(list(negative_indices_pool), len(neg)))
+        features, _ = self.prepare_data(self.train_entries, indices.tolist())
         return features
 
 

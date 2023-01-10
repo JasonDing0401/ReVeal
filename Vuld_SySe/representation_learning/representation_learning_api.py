@@ -1,5 +1,6 @@
 import numpy
 import sys
+import datetime
 import torch
 import joblib
 from sklearn.base import BaseEstimator
@@ -41,7 +42,7 @@ class RepresentationLearningModel(BaseEstimator):
     def fit(self, train_x, train_y):
         self.train(train_x, train_y)
 
-    def train(self, train_x, train_y, dataset_name, train_w_reveal=False):
+    def train(self, train_x, train_y, valid_x, valid_y, dataset_name):
         input_dim = train_x.shape[1]
         self.model = MetricLearningModel(
             input_dim=input_dim, hidden_dim=self.hidden_dim, aplha=self.alpha, lambda1=self.lambda1,
@@ -52,24 +53,19 @@ class RepresentationLearningModel(BaseEstimator):
             self.model.cuda(device=0)
         self.dataset = DataSet(self.batch_size, train_x.shape[1])
         for _x, _y in zip(train_x, train_y):
-            if numpy.random.uniform() <= 0.1:
-                self.dataset.add_data_entry(_x.tolist(), _y.item(), 'valid')
-            else:
-                self.dataset.add_data_entry(_x.tolist(), _y.item(), 'train')
+            self.dataset.add_data_entry(_x.tolist(), _y.item(), 'train')
+        for _x, _y in zip(valid_x, valid_y):
+            self.dataset.add_data_entry(_x.tolist(), _y.item(), 'valid')
         self.dataset.initialize_dataset(balance=self.balance, output_buffer=self.output_buffer)
+        time = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        model_path = f"models/{dataset_name}_{time}.bin"
+        print("model path: {}".format(model_path))
         train(
             model=self.model, dataset=self.dataset, optimizer=self.optimizer,
             num_epochs=self.num_epoch, max_patience=self.max_patience,
-            cuda_device=0 if self.cuda else -1,
+            cuda_device=0 if self.cuda else -1, model_path=model_path,
             output_buffer=self.output_buffer
         )
-        if train_w_reveal:
-            model_to_store = self.model.cpu()
-            # V1 is three layers
-            with open(f"/home/ding/dlvp/Devign/models/reveal/rl-model-pretrained_reveal-{dataset_name}.pkl", "wb+") as f:
-                joblib.dump(model_to_store, f)
-                print("Successfully saved model to file!\n")
-                self.model.cuda()
         if self.output_buffer is not None:
             print('Training Complete', file=self.output_buffer)
 
@@ -95,27 +91,34 @@ class RepresentationLearningModel(BaseEstimator):
             _batch_count=self.dataset.initialize_test_batches(), cuda_device=0 if self.cuda else -1
         )
 
-    def evaluate(self, test_x, test_y, dataset_name, pretrain=False):
+    def evaluate(self, test_x, test_y, pretrain=None):
         if not hasattr(self, 'dataset'):
             raise ValueError('Cannnot call predict or evaluate in untrained model. Train First!')
         self.dataset.clear_test_set()
         for _x, _y in zip(test_x, test_y):
             self.dataset.add_data_entry(_x.tolist(), _y.item(), part='test')
         if pretrain:
-            with open(f"/home/ding/dlvp/Devign/models/reveal/rl-model-pretrained_reveal-{dataset_name}.pkl", "rb") as f:
-                self.model = joblib.load(f)
-                print("Successfully loaded model from file!\n")
-                self.model.cuda()
-        acc, pr, rc, f1 = evaluate_from_model(
+            input_dim = test_x.shape[1]
+            self.model = MetricLearningModel(
+                input_dim=input_dim, hidden_dim=self.hidden_dim, aplha=self.alpha, lambda1=self.lambda1,
+                lambda2=self.lambda2, dropout_p=self.dropout, num_layers=self.num_layers
+            )
+            self.model.load_state_dict(torch.load(f"models/{pretrain}"))
+            print(f"Successfully loaded model {pretrain} from file!\n")
+            self.model.cuda()
+        acc, pr, rc, f1, tnr, fpr, fnr = evaluate_from_model(
             model=self.model, iterator_function=self.dataset.get_next_test_batch,
             _batch_count=self.dataset.initialize_test_batches(), cuda_device=0 if self.cuda else -1,
             output_buffer=self.output_buffer
         )
         return {
-            'accuracy': round(acc,3),
-            'precision': round(pr,3),
-            'recall': round(rc,3),
-            'f1': round(f1,3),
+            'accuracy': round(acc, 3),
+            'precision': round(pr, 3),
+            'recall': round(rc, 3),
+            'f1': round(f1, 3),
+            'tnr': round(tnr, 3),
+            'fpr': round(fpr, 3),
+            'fnr': round(fnr, 3),
         }
 
     def score(self, test_x, test_y):

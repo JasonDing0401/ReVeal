@@ -5,19 +5,26 @@ import sys
 import torch
 from graph_dataset import DataSet
 from sklearn.metrics import accuracy_score as acc, precision_score as pr, recall_score as rc, f1_score as f1
+from sklearn.metrics import confusion_matrix
 from tqdm import tqdm
 from tsne import plot_embedding
+from torch.utils.tensorboard import SummaryWriter
+import pickle
 
 from models import MetricLearningModel
 import time
 
 
-def train(model, dataset, optimizer, num_epochs, max_patience=5,
+def train(model, dataset, optimizer, num_epochs, model_path, max_patience=5,
           valid_every=1, cuda_device=-1, output_buffer=sys.stderr):
     if output_buffer is not None:
         print('Start Training', file=output_buffer)
     assert isinstance(model, MetricLearningModel) and isinstance(dataset, DataSet)
+    writer = SummaryWriter()
+    model_f1_path = model_path[:-4]+"_f1.bin"
+    model_acc_path = model_path[:-4]+"_acc.bin"
     best_f1 = 0
+    best_valid_acc = 0
     best_model = None
     patience_counter = 0
     train_losses = []
@@ -45,42 +52,62 @@ def train(model, dataset, optimizer, num_epochs, max_patience=5,
                     example_batch=features, targets=targets,
                     positive_batch=same_class_features, negative_batch=diff_class_features
                 )
-                batch_losses.append(batch_loss.detach().cpu().item())
+                batch_losses.append(batch_loss.detach().cpu().item() / dataset.batch_size)
                 batch_loss.backward()
                 optimizer.step()
                 del features, targets, same_class_features, diff_class_features
-            epoch_loss = np.sum(batch_losses).item()
+            epoch_loss = np.mean(batch_losses).item()
             train_losses.append(epoch_loss)
             if output_buffer is not None:
                 print('=' * 100, file=output_buffer)
                 print('After epoch %2d Train loss : %10.4f' % (epoch_count, epoch_loss), file=output_buffer)
                 print('=' * 100, file=output_buffer)
             if epoch_count % valid_every == 0:
+                train_batch_count = dataset.initialize_train_batches()
+                train_acc, train_prec, train_recall, train_f1, train_tnr, train_fpr, train_fnr = evaluate(
+                    model, dataset.get_next_train_batch_testonly, train_batch_count, cuda_device, output_buffer)
+                train_loss = epoch_loss
                 valid_batch_count = dataset.initialize_valid_batches()
-                vacc, vpr, vrc, vf1 = evaluate(
+                vacc, vpr, vrc, vf1, vtnr, vfpr, vfnr = evaluate(
                     model, dataset.get_next_valid_batch, valid_batch_count, cuda_device, output_buffer)
                 if vf1 > best_f1:
                     best_f1 = vf1
                     patience_counter = 0
-                    best_model = copy.deepcopy(model.state_dict())
+                    best_model_f1 = copy.deepcopy(model.state_dict())
+                    with open(model_f1_path, "wb+") as f:
+                        torch.save(model.state_dict(), f)
+                        print(f"Epoch {epoch_count} Successfully saved model with current best f1 score {round(best_f1,4)} to file!\n")
                 else:
                     patience_counter += 1
-                if dataset.initialize_test_batches() != 0:
-                    tacc, tpr, trc, tf1 = evaluate(
-                        model, dataset.get_next_test_batch, dataset.initialize_test_batches(), cuda_device,
-                        output_buffer=output_buffer
-                    )
-                    if output_buffer is not None:
-                        print('Test Set:       Acc: %6.3f\tPr: %6.3f\tRc %6.3f\tF1: %6.3f' % \
-                              (tacc, tpr, trc, tf1), file=output_buffer)
-                        print('=' * 100, file=output_buffer)
+                if vacc > best_valid_acc:
+                    best_valid_acc = vacc
+                    patience_counter = 0
+                    best_model_acc = copy.deepcopy(model.state_dict())
+                    with open(model_acc_path, "wb+") as f:
+                        torch.save(model.state_dict(), f)
+                        print(f"Epoch {epoch_count} Successfully saved model with current best validation acc {round(best_valid_acc,4)} to file!\n")
+                else:
+                    patience_counter += 1
+
+                writer.add_scalars('Loss', {'train': train_loss}, epoch_count)
+                writer.add_scalars('Acc', {'train': train_acc, 'valid': vacc}, epoch_count)
+                writer.add_scalars('F1', {'train': train_f1, 'valid': vf1}, epoch_count)
+                writer.add_scalars('Prec', {'train': train_prec, 'valid': vpr}, epoch_count)
+                writer.add_scalars('Recall', {'train': train_recall, 'valid': vrc}, epoch_count)
+                writer.add_scalars('TNR', {'train': train_tnr, 'valid': vtnr}, epoch_count)
+                writer.add_scalars('FPR', {'train': train_fpr, 'valid': vfpr}, epoch_count)
+                writer.add_scalars('FNR', {'train': train_fnr, 'valid': vfnr}, epoch_count)
                 if output_buffer is not None:
-                    print('Validation Set: Acc: %6.3f\tPr: %6.3f\tRc %6.3f\tF1: %6.3f\tPatience: %2d' % \
-                          (vacc, vpr, vrc, vf1, patience_counter), file=output_buffer)
+                    print('Train Set: Loss: %6.3f\tAcc: %6.3f\tPr: %6.3f\tRc %6.3f\tF1: %6.3f\tTNR: %6.3f\tFPR: %6.3f\tFNR: %6.3f\tPatience: %2d' % \
+                          (train_loss, train_acc, train_prec, train_recall, train_f1, train_tnr, train_fpr, train_fnr, patience_counter), file=output_buffer)
+                    print('-' * 100, file=output_buffer)
+                if output_buffer is not None:
+                    print('Validation Set: Acc: %6.3f\tPr: %6.3f\tRc %6.3f\tF1: %6.3f\tTNR: %6.3f\tFPR: %6.3f\tFNR: %6.3f\tPatience: %2d' % \
+                          (vacc, vpr, vrc, vf1, vtnr, vfpr, vfnr, patience_counter), file=output_buffer)
                     print('-' * 100, file=output_buffer)
                 if patience_counter == max_patience:
-                    if best_model is not None:
-                        model.load_state_dict(best_model)
+                    if best_model_f1 is not None:
+                        model.load_state_dict(best_model_f1)
                         if cuda_device != -1:
                             model.cuda(device=cuda_device)
                     break
@@ -92,17 +119,21 @@ def train(model, dataset, optimizer, num_epochs, max_patience=5,
             model.load_state_dict(best_model)
             if cuda_device != -1:
                 model.cuda(device=cuda_device)
-    if dataset.initialize_test_batches() != 0:
-        tacc, tpr, trc, tf1 = evaluate(
-            model, dataset.get_next_test_batch, dataset.initialize_test_batches(), cuda_device)
-        if output_buffer is not None:
-            print('*' * 100, file=output_buffer)
-            print('*' * 100, file=output_buffer)
-            print('Test Set: Acc: %6.3f\tPr: %6.3f\tRc %6.3f\tF1: %6.3f' % \
-                  (tacc, tpr, trc, tf1), file=output_buffer)
-            print('%f\t%f\t%f\t%f' % (tacc, tpr, trc, tf1))
-            print('*' * 100, file=output_buffer)
-            print('*' * 100, file=output_buffer)
+    if best_model_f1 is not None:
+        model.load_state_dict(best_model_f1)
+    with open(model_path, "wb+") as f:
+        torch.save(model.state_dict(), f)
+        print("Finally Successfully saved model to file!\n")
+    # if dataset.initialize_test_batches() != 0:
+    #     tacc, tpr, trc, tf1, ttnr, tfpr, tfnr = evaluate(
+    #         model, dataset.get_next_test_batch, dataset.initialize_test_batches(), cuda_device)
+    #     if output_buffer is not None:
+    #         print('*' * 100, file=output_buffer)
+    #         print('*' * 100, file=output_buffer)
+    #         print('Test Set: Acc: %6.3f\tPr: %6.3f\tRc %6.3f\tF1: %6.3f\tTNR: %6.3f\tFPR: %6.3f\tFNR: %6.3f' % \
+    #               (tacc, tpr, trc, tf1, ttnr, tfpr, tfnr), file=output_buffer)
+    #         print('*' * 100, file=output_buffer)
+    #         print('*' * 100, file=output_buffer)
 
 
 def predict(model, iterator_function, _batch_count, cuda_device):
@@ -144,10 +175,14 @@ def evaluate(model, iterator_function, _batch_count, cuda_device, output_buffer=
             predictions.extend(batch_pred)
             expectations.extend(batch_tgt)
         model.train()
+        TN, FP, FN, TP = confusion_matrix(expectations, predictions).ravel()
         return acc(expectations, predictions) * 100, \
-               pr(expectations, predictions) * 100, \
-               rc(expectations, predictions) * 100, \
-               f1(expectations, predictions) * 100,
+            pr(expectations, predictions) * 100, \
+            rc(expectations, predictions) * 100, \
+            f1(expectations, predictions) * 100, \
+            TN/(TN+FP) * 100, \
+            FP/(FP+TN) * 100, \
+            FN/(TP+FN) * 100,            
 
 
 def show_representation(model, iterator_function, _batch_count, cuda_device, name, output_buffer=sys.stderr):
