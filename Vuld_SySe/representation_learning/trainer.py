@@ -25,17 +25,14 @@ def train(model, dataset, optimizer, num_epochs, model_path, max_patience=5,
     model_acc_path = model_path[:-4]+"_acc.bin"
     best_f1 = 0
     best_valid_acc = 0
-    best_model = None
+    best_model_f1 = None
     patience_counter = 0
     train_losses = []
     try:
         for epoch_count in range(num_epochs):
             batch_losses = []
             num_batches = dataset.initialize_train_batches()
-            output_batches_generator = range(num_batches)
-            if output_buffer is not None:
-                output_batches_generator = tqdm(output_batches_generator)
-            for _ in output_batches_generator:
+            for step_count in tqdm(range(num_batches)):
                 model.train()
                 model.zero_grad()
                 optimizer.zero_grad()
@@ -76,18 +73,15 @@ def train(model, dataset, optimizer, num_epochs, model_path, max_patience=5,
                     best_model_f1 = copy.deepcopy(model.state_dict())
                     with open(model_f1_path, "wb+") as f:
                         torch.save(model.state_dict(), f)
-                        print(f"Epoch {epoch_count} Successfully saved model with current best f1 score {round(best_f1,4)} to file!\n")
+                        print(f"Epoch {epoch_count} Successfully saved model with current best f1 score {round(best_f1,2)} to file!\n")
                 else:
                     patience_counter += 1
                 if vacc > best_valid_acc:
                     best_valid_acc = vacc
                     patience_counter = 0
-                    best_model_acc = copy.deepcopy(model.state_dict())
                     with open(model_acc_path, "wb+") as f:
                         torch.save(model.state_dict(), f)
-                        print(f"Epoch {epoch_count} Successfully saved model with current best validation acc {round(best_valid_acc,4)} to file!\n")
-                else:
-                    patience_counter += 1
+                        print(f"Epoch {epoch_count} Successfully saved model with current best validation acc {round(best_valid_acc,2)} to file!\n")
 
                 writer.add_scalars('Loss', {'train': train_loss}, epoch_count)
                 writer.add_scalars('Acc', {'train': train_acc, 'valid': vacc}, epoch_count)
@@ -114,16 +108,15 @@ def train(model, dataset, optimizer, num_epochs, model_path, max_patience=5,
     except KeyboardInterrupt:
         if output_buffer is not None:
             print('Training Interrupted by User!')
-        if best_model is not None:
-            print("best model is preloaded")
-            model.load_state_dict(best_model)
-            if cuda_device != -1:
-                model.cuda(device=cuda_device)
+
     if best_model_f1 is not None:
+        print("best f1 model is preloaded")
         model.load_state_dict(best_model_f1)
+        if cuda_device != -1:
+            model.cuda(device=cuda_device)
     with open(model_path, "wb+") as f:
         torch.save(model.state_dict(), f)
-        print("Finally Successfully saved model to file!\n")
+        print(f"Finally Successfully saved model to {model_path}!\n")
     # if dataset.initialize_test_batches() != 0:
     #     tacc, tpr, trc, tf1, ttnr, tfpr, tfnr = evaluate(
     #         model, dataset.get_next_test_batch, dataset.initialize_test_batches(), cuda_device)
@@ -176,13 +169,13 @@ def evaluate(model, iterator_function, _batch_count, cuda_device, output_buffer=
             expectations.extend(batch_tgt)
         model.train()
         TN, FP, FN, TP = confusion_matrix(expectations, predictions).ravel()
-        return acc(expectations, predictions) * 100, \
-            pr(expectations, predictions) * 100, \
-            rc(expectations, predictions) * 100, \
-            f1(expectations, predictions) * 100, \
-            TN/(TN+FP) * 100, \
-            FP/(FP+TN) * 100, \
-            FN/(TP+FN) * 100,            
+        return round(acc(expectations, predictions) * 100, 2), \
+            round(pr(expectations, predictions) * 100, 2), \
+            round(rc(expectations, predictions) * 100, 2), \
+            round(f1(expectations, predictions) * 100, 2), \
+            round(TN/(TN+FP) * 100, 2), \
+            round(FP/(FP+TN) * 100, 2), \
+            round(FN/(TP+FN) * 100, 2),            
 
 
 def show_representation(model, iterator_function, _batch_count, cuda_device, name, output_buffer=sys.stderr):
